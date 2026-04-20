@@ -53,22 +53,33 @@
       return raw;
     }
 
-    // For relative paths, return as-is
-    if (!raw.startsWith('/')) return raw;
+    try {
+      var parsed = new URL(raw, window.location.href);
+      var isAbsoluteHttp = lower.startsWith("http://") || lower.startsWith("https://") || lower.startsWith("//");
+      if (isAbsoluteHttp) {
+        if (parsed.origin !== window.location.origin) return raw;
+        if (parsed.pathname && parsed.pathname.startsWith(basePath)) return raw;
+        if (parsed.pathname && parsed.pathname.startsWith('/')) {
+          var mappedAbsPath = pageMap[parsed.pathname]
+            ? withBase(pageMap[parsed.pathname])
+            : withBase(parsed.pathname);
+          return parsed.origin + mappedAbsPath + (parsed.search || "") + (parsed.hash || "");
+        }
+      }
+    } catch (_) {}
 
-    // Handle absolute paths by calculating from window.location.pathname
+    if (!raw.startsWith('/')) return raw;
     var hashIndex = raw.indexOf('#');
     var searchIndex = raw.indexOf('?');
     var cut = raw.length;
     if (searchIndex !== -1 && searchIndex < cut) cut = searchIndex;
     if (hashIndex !== -1 && hashIndex < cut) cut = hashIndex;
-    var pathpart = raw.slice(0, cut);
+    var pathname = raw.slice(0, cut);
     var suffix = raw.slice(cut);
-    
-    if (pageMap[pathpart]) {
-      return withBase(pageMap[pathpart]) + suffix;
-    }
-    return withBase(pathpart) + suffix;
+    var mapped = pageMap[pathname]
+      ? withBase(pageMap[pathname])
+      : withBase(pathname);
+    return mapped + suffix;
   };
 
   var origFetch = window.fetch ? window.fetch.bind(window) : null;
